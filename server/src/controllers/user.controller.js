@@ -9,7 +9,7 @@ export const signUp = async(req,res)=>{
     if(!fullName || !email || !password){
       return res.status(400).json({message:"Credential must be filled"})
     }
-    const alreadyExist = await user.findOne({email});
+    const alreadyExist = await User.findOne({email});
     //Email already exist
     if(alreadyExist){
       return res.status(400).json({message:"Email already exists"})
@@ -49,5 +49,24 @@ export const signIn = async(req,res)=>{
     return res.status(200).json({message:"User is logged in"});
   } catch (error) {
     console.log(`sign-in Error ${error}`)
+  }
+}
+
+export const logout =(req,res)=>{
+  try {
+    res.cookie("jwt","",{maxAge:0})
+    res.status(200).json({message:"Logged out successfuly"})
+  } catch (error) {
+    console.log("Error in logout",error.message);
+    res.status(500).json({message:"Internal Server Error"});
+  }
+}
+
+export const checkAuth = (req,res) =>{
+  try {
+    res.status(200).json(req.user);
+  } catch (error) {
+    console.log("Error in logout",error.message);
+    res.status(500).json({message:"Internal Server Error"});
   }
 }
