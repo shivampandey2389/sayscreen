@@ -1,83 +1,83 @@
-import {
-    ImageKitAbortError,
-    ImageKitInvalidRequestError,
-    ImageKitServerError,
-    ImageKitUploadNetworkError,
-    upload,
-} from "@imagekit/react";
 import { useState } from "react";
 import { useRef } from 'react';
 import { Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const Upload = () => {
-  const fileInputRef = useRef(null);
-  const [progress, setProgress] = useState(0);
-  const [disabled,setDisabled] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    thumnail: null,
+    video: null
+  })
+  const thumnailRef = useRef();
+  const videoRef = useRef();
+  const [disabled, setDisabled] = useState(false);
 
-  const authenticator = async () => {
-    try {
-      const response = await fetch("http://localhost:3000/upload-video");
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Request failed with status ${response.status}: ${errorText}`);
-      }
-      const data = await response.json();
-      const { signature, expire, token, publicKey } = data;
-      return { signature, expire, token, publicKey };
-    } catch (error) {
-      console.error("Authentication error:", error);
-      throw new Error("Authentication request failed");
+  const resetVal =() =>{
+    setFormData({
+          title:'',
+          description:'',
+          thumnail:null,
+          video:''
+        })
+    thumnailRef.current.value='';
+    videoRef.current.value=''
+  }
+
+  const validate = (formData) => {
+    if (!formData.title || !formData.description || !formData.thumnail || !formData.video) {
+      toast.error("Fill every credentials");
+      return false;
     }
-  };
+    const thumnailExt = formData.thumnail.name.split('.').pop().toLowerCase();
+    const videoExt = formData.video.name.split('.').pop().toLowerCase();
+    const validateImgExt = ['png', 'jpg', 'jpeg', 'webp'];
+    const validateVidExt = ['mp4', 'mov', 'avi', 'webm'];
 
+    if (!validateImgExt.includes(thumnailExt) || !validateVidExt.includes(videoExt)) {
+      toast.error('provide proper file')
+      return false;
+    }
+
+    return true;
+
+  }
+  
   const handleSubmit = async (e) => {
-        e.preventDefault();
-        setDisabled(true)
-        const fileInput = fileInputRef.current;
-        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-            alert("Please select a file to upload");
-            setDisabled(false);
-            return;
-        }
+    e.preventDefault();
+    const success = validate(formData);
+    setDisabled(true)
+    if (success) {
+      const formDatas = new FormData();
+      formDatas.append('title', formData.title);
+      formDatas.append('description', formData.description);
+      formDatas.append('thumnail', formData.thumnail); // or .video
+      formDatas.append('video',formData.video)
 
-        const file = fileInput.files[0];
-        let authParams;
-        try {
-            authParams = await authenticator();
-        } catch (authError) {
-            console.error("Failed to authenticate for upload:", authError);
-            return;
-        }
-        const { signature, expire, token, publicKey } = authParams;
-        try {
-            const uploadResponse = await upload({
-                expire,
-                token,
-                signature,
-                publicKey,
-                file,
-                fileName: file.name, 
-                onProgress: (event) => {
-                    setProgress((event.loaded / event.total) * 100);
-                },
-                abortSignal: AbortController.signal,
-            });
-            console.log("Upload response:", uploadResponse);
-        } catch (error) {
-            if (error instanceof ImageKitAbortError) {
-                console.error("Upload aborted:", error.reason);
-            } else if (error instanceof ImageKitInvalidRequestError) {
-                console.error("Invalid request:", error.message);
-            } else if (error instanceof ImageKitUploadNetworkError) {
-                console.error("Network error:", error.message);
-            } else if (error instanceof ImageKitServerError) {
-                console.error("Server error:", error.message);
-            } else {
-                console.error("Upload error:", error);
-            }
-        }
+      try {
+        const res = await fetch("http://localhost:3000/api/upload", {
+          method: "POST",
+          body: formDatas
+        });
+
+        const data = await res.json();
+        console.log("ImageKit upload result:", data);
+        resetVal();
         setDisabled(false);
-    };
+        
+      } catch (err) {
+        resetVal();
+        setDisabled(false)
+        console.error("Upload error:", err);
+      }
+      toast.success("Successfully uploaded");
+      return;
+    }
+    resetVal();
+    setDisabled(false)
+    toast.error("Failed to upload")
+  }
 
   return (
     <div className="bg-base-200 w-full min-h-screen pt-26">
@@ -90,6 +90,8 @@ const Upload = () => {
             <input
               type="text"
               name='title'
+              value={formData.title}
+              onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))}
               className="input input-bordered w-full py-3 px-4 text-base"
               placeholder="Type here"
             />
@@ -99,6 +101,8 @@ const Upload = () => {
             <legend className="text-xl font-medium">Description</legend>
             <textarea
               name="description"
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))}
               className="textarea textarea-bordered w-full py-3 px-4 text-base"
               placeholder="Description"
               rows={5}
@@ -107,28 +111,28 @@ const Upload = () => {
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-xl font-medium">Thumbnail</legend>
-            <input type="file" ref={fileInputRef} className="file-input file-input-bordered w-full" />
+            <input type="file" name="thumnail" accept="image/*" ref={thumnailRef} onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.files[0] }))} className="file-input file-input-bordered w-full" />
           </fieldset>
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-xl font-medium">Video</legend>
-            <input type="file" className="file-input file-input-bordered w-full" />
+            <input type="file" name="video" accept="video/*" ref={videoRef} onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.files[0] }))} className="file-input file-input-bordered w-full" />
           </fieldset>
 
-          <button className="btn btn-primary w-full md:w-1/3 mx-auto mt-4 text-lg" disabled={disabled ? true :false}>
+          <button className="btn btn-primary w-full md:w-1/3 mx-auto mt-4 text-lg" disabled={disabled ? true : false}>
             {
               disabled ? (
                 <>
-                <Loader2 className="size-5 animate-spin" />
-                Uploading....
+                  <Loader2 className="size-5 animate-spin" />
+                  Uploading....
                 </>
-              ):
-              (
-                "Upload"
-              )
+              ) :
+                (
+                  "Upload"
+                )
             }
           </button>
-          
+
         </form>
       </div>
     </div>
