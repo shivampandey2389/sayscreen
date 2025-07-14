@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useRef } from 'react';
 import { Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useUpload } from "../store/useUploadStore";
 
 const Upload = () => {
+  const {isDisabled,uploadup} = useUpload();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -12,17 +14,15 @@ const Upload = () => {
   })
   const thumnailRef = useRef();
   const videoRef = useRef();
-  const [disabled, setDisabled] = useState(false);
-
   const resetVal =() =>{
     setFormData({
           title:'',
           description:'',
           thumnail:null,
-          video:''
+          video:null
         })
     thumnailRef.current.value='';
-    videoRef.current.value=''
+    videoRef.current.value='';
   }
 
   const validate = (formData) => {
@@ -45,46 +45,30 @@ const Upload = () => {
   }
   
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const success = validate(formData);
-    setDisabled(true)
-    if (success) {
+  e.preventDefault();
+  const success = validate(formData);
+  if(!success) return;
+  if (success) {
       const formDatas = new FormData();
       formDatas.append('title', formData.title);
       formDatas.append('description', formData.description);
       formDatas.append('thumnail', formData.thumnail); // or .video
-      formDatas.append('video',formData.video)
-
+      formDatas.append('video',formData.video);
       try {
-        const res = await fetch("http://localhost:3000/api/upload", {
-          method: "POST",
-          body: formDatas
-        });
-
-        const data = await res.json();
-        console.log("ImageKit upload result:", data);
+        await uploadup(formDatas);
         resetVal();
-        setDisabled(false);
-        
-      } catch (err) {
-        resetVal();
-        setDisabled(false)
-        console.error("Upload error:", err);
+      } catch (error) {
+        toast.error(error);
       }
-      toast.success("Successfully uploaded");
-      return;
-    }
-    resetVal();
-    setDisabled(false)
-    toast.error("Failed to upload")
   }
+}
 
   return (
     <div className="bg-base-200 w-full min-h-screen pt-26">
       <div className="mx-auto max-w-4xl px-4">
 
         <h1 className="text-4xl font-semibold mb-8 mt-5">Upload Video</h1>
-        <form action="" onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
           <fieldset className="flex flex-col gap-2">
             <legend className="text-xl font-medium">Title</legend>
             <input
@@ -119,9 +103,9 @@ const Upload = () => {
             <input type="file" name="video" accept="video/*" ref={videoRef} onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.files[0] }))} className="file-input file-input-bordered w-full" />
           </fieldset>
 
-          <button className="btn btn-primary w-full md:w-1/3 mx-auto mt-4 text-lg" disabled={disabled ? true : false}>
+          <button className="btn btn-primary w-full md:w-1/3 mx-auto mt-4 text-lg" disabled={isDisabled ? true : false}>
             {
-              disabled ? (
+              isDisabled ? (
                 <>
                   <Loader2 className="size-5 animate-spin" />
                   Uploading....

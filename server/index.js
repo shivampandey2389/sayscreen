@@ -23,17 +23,23 @@ app.get('/',(req,res)=>{
 
 app.use('/auth',authRouter);
 
-app.post("/api/upload", upload.fields([{name:'thumnail',maxCount:1},{name:'video',maxCount:1}]), async (req, res) => {
+app.post("/api/upload", upload.fields([
+  {name:'thumnail',maxCount:1},
+  {name:'video',maxCount:1}]), 
+  async (req, res) => {
   const {title,description}  = req.body;
   const thumnailFile = req.files['thumnail']?.[0];
   const videoFile = req.files['video']?.[0];
-  if (!thumnailFile || !videoFile) {
-     return res.status(400).json({ error: "Both files are required" });
+  if (!title||!description||!thumnailFile || !videoFile) {
+     return res.status(400).json({ error: "All fields are required" });
   }
 
   try {
+    const thumnailBuffer = fs.readFileSync(thumnailFile.path);
+    const videoBuffer = fs.readFileSync(videoFile.path);
+
     const thumnailUpload = await imageKit.upload({
-      file: fs.readFileSync(thumnailFile.path), // binary
+      file: thumnailBuffer, // binary
       fileName: thumnailFile.originalname,
       folder:'/thumbnails',
       extensions: [
@@ -52,9 +58,8 @@ app.post("/api/upload", upload.fields([{name:'thumnail',maxCount:1},{name:'video
     });
 
     const videoUpload = await imageKit.upload({
-      file:fs.readFileSync(videoFile.path),
+      file:videoBuffer,
       fileName:videoFile.originalname,
-      folder:'/videos',
       folder:'/videos',
       extensions: [
         {
@@ -72,22 +77,35 @@ app.post("/api/upload", upload.fields([{name:'thumnail',maxCount:1},{name:'video
     })
 
     // Cleanup local file
-     fs.unlinkSync(thumnailFile.path);
+    fs.unlinkSync(thumnailFile.path);
     fs.unlinkSync(videoFile.path);
 
-    res.json({
+    console.log("File is uploaded");
+    return res.status(201).json({
       message: "Both files uploaded successfully",
       thumbnail: thumnailUpload.url,
       video: videoUpload.url,
+      title,
+      description
     });
   } catch (error) {
     console.error("ImageKit Upload Error:", error);
-    res.status(500).json({ error: "Upload failed", details: error.message });
+    try {
+        if (thumnailFile?.path) fs.unlinkSync(thumnailFile.path);
+        if (videoFile?.path) fs.unlinkSync(videoFile.path);
+      } catch (cleanupError) {
+        console.error("Error cleaning up files:", cleanupError);
+      }
+
+      return res.status(500).json({
+        error: "Upload failed",
+        details: error?.message || "Unknown error occurred",
+      });
   }
 });
 
 
-app.listen(3000,()=>{
-  connectDB()
-  console.log("Connect to http://localhost:3000")
-})
+app.listen(3000, async () => {
+    await connectDB();
+    console.log("Connected to http://localhost:3000");
+});
