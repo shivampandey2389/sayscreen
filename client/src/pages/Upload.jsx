@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useRef } from 'react';
-import { Loader2 } from "lucide-react";
+import { ArrowUpFromLine, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useUpload } from "../store/useUploadStore";
 
 const Upload = () => {
   const {isDisabled,uploadup} = useUpload();
+  const [imgUpload , setImgUpload] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -95,7 +96,17 @@ const Upload = () => {
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-xl font-medium">Thumbnail</legend>
-            <input type="file" name="thumnail" accept="image/*" ref={thumnailRef} onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.files[0] }))} className="file-input file-input-bordered w-full" />
+            <input type="file" name="thumnail" accept="image/*" ref={thumnailRef} onChange={(e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.files[0] }))} hidden className="file-input file-input-bordered w-full" />
+            {imgUpload ?(
+              <figure onClick={()=>thumnailRef.current?.click()} className="bg-[#1b1816] w-full h-60 rounded-2xl flex items-center justify-center flex-col border-[#3f3c3b] border-1">
+                <ArrowUpFromLine className='h-5 w-5' />
+                <p>Click to upload thumbnail</p>
+              </figure>
+            ) :(
+              <div>
+                <img src={imgUpload} alt="" width={24} height={24} />
+              </div>
+)            }
           </fieldset>
 
           <fieldset className="flex flex-col gap-2">
